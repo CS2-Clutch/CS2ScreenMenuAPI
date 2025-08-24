@@ -59,11 +59,12 @@ namespace CS2ScreenMenuAPI
         {
             if (observerInfo.Observing is not CCSPlayerPawnBase pawn) return null;
 
-            var eyeAngles = pawn.EyeAngles;
+            var viewOffset = new Vector3(pawn.ViewOffset.X, pawn.ViewOffset.Y, pawn.ViewOffset.Z);
+
+            var eyeAngles = pawn.OriginalController.Value.PlayerPawn.Value.EyeAngles;
             NativeAPI.AngleVectors(eyeAngles.Handle, _Forward.Handle, _Right.Handle, _Up.Handle);
 
             var origin = new Vector3(pawn.AbsOrigin!.X, pawn.AbsOrigin!.Y, pawn.AbsOrigin!.Z);
-            var viewOffset = new Vector3(pawn.ViewOffset.X, pawn.ViewOffset.Y, pawn.ViewOffset.Z);
 
             return new()
             {

@@ -369,7 +369,7 @@ namespace CS2ScreenMenuAPI
                 }
                 if (nonSpacersSeen == startIndex)
                 {
-                    actualStartIndex = i;
+                    actualStartIndex = i + 1;
                     break;
                 }
             }
@@ -537,7 +537,7 @@ namespace CS2ScreenMenuAPI
             return ent;
         }
 
-        private void UpdateEntity(CPointWorldText ent, CCSGOViewModel? viewmodel, string newText, Vector position, QAngle angles, bool updateText = true, bool updateParent = true)
+        private void UpdateEntity(CPointWorldText ent, CPointOrient? viewmodel, string newText, Vector position, QAngle angles, bool updateText = true, bool updateParent = true)
         {
             if (updateText) ent.MessageText = newText;
             ent.Teleport(position, angles, null);

@@ -620,7 +620,7 @@ namespace CS2ScreenMenuAPI
             MenuAPI.SetActiveMenu(player, null);
             CleanupPlayerResolutionMenu(player);
 
-
+            CCSPlayer.PointOrients.Remove(player);
             CCSPlayer.CleanupFrozenPlayer(player);
 
             if (MenuType != MenuType.KeyPress && _config.Settings.FreezePlayer)

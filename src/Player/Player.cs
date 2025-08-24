@@ -1,9 +1,7 @@
 ﻿using System.Globalization;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Memory;
-using CounterStrikeSharp.API.Modules.Utils;
 
 namespace CS2ScreenMenuAPI
 {
@@ -44,79 +42,36 @@ namespace CS2ScreenMenuAPI
             return player.GetPlayerPawn() as CCSPlayerPawnBase;
         }
 
-        public static CCSGOViewModel? EnsureCustomView(this CCSPlayerController player, int index)
+        public static CPointOrient? EnsureCustomView(this CCSPlayerController player, int index)
         {
+            return CreateOrGetPointOrient(player);
+        }
 
-            CCSPlayerPawnBase? pPawnBase = player.GetPlayerPawnBase();
-            if (pPawnBase == null)
-            {
+        public static readonly Dictionary<CCSPlayerController, CPointOrient> PointOrients = new();
+
+        public static CPointOrient? CreateOrGetPointOrient(this CCSPlayerController player)
+        {
+            if (PointOrients.TryGetValue(player, out var pointOrient))
+                return pointOrient;
+
+            var pawn = player.Pawn.Value!;
+
+            var entOrient = Utilities.CreateEntityByName<CPointOrient>("point_orient");
+            if (entOrient == null || !entOrient.IsValid)
                 return null;
-            }
-            ;
 
-            if (pPawnBase.LifeState == (byte)LifeState_t.LIFE_DEAD)
-            {
+            entOrient.Active = true;
+            entOrient.GoalDirection = PointOrientGoalDirectionType_t.eEyesForward;
+            entOrient.DispatchSpawn();
 
-                var playerPawn = player.Pawn.Value;
-                if (playerPawn == null || !playerPawn.IsValid)
-                {
-                    return null;
-                }
+            System.Numerics.Vector3 vecPos = (System.Numerics.Vector3)pawn.AbsOrigin! with { Z = pawn.AbsOrigin!.Z + pawn.ViewOffset.Z};
+            entOrient.Teleport(vecPos, null, null);
+            entOrient.AcceptInput("SetParent", pawn, null, "!activator");
+            entOrient.AcceptInput("SetTarget", pawn, null, "!activator");
+            //entOrient.AcceptInput("SetParentAttachmentMaintainOffset", pawn, null, "look_straight_ahead_stand");
 
-                if (player.ControllingBot)
-                {
-                    return null;
-                }
-
-                var observerServices = playerPawn.ObserverServices;
-                if (observerServices == null)
-                {
-                    return null;
-                }
-
-                var observerPawn = observerServices.ObserverTarget?.Value?.As<CCSPlayerPawn>();
-                if (observerPawn == null || !observerPawn.IsValid)
-                {
-                    return null;
-                }
-
-                var observerController = observerPawn.OriginalController.Value;
-                if (observerController == null || !observerController.IsValid)
-                {
-                    return null;
-                }
-
-                pPawnBase = observerController.GetPlayerPawnBase();
-                if (pPawnBase == null)
-                {
-                    return null;
-                }
-            }
-
-            var pawn = pPawnBase as CCSPlayerPawn;
-            if (pawn == null)
-            {
-                return null;
-            }
-
-            if (pawn.ViewModelServices == null)
-            {
-                return null;
-            }
-
-            int offset = Schema.GetSchemaOffset("CCSPlayer_ViewModelServices", "m_hViewModel");
-            IntPtr viewModelHandleAddress = (IntPtr)(pawn.ViewModelServices.Handle + offset + 4);
-
-            var handle = new CHandle<CCSGOViewModel>(viewModelHandleAddress);
-            if (!handle.IsValid)
-            {
-                CCSGOViewModel viewmodel = Utilities.CreateEntityByName<CCSGOViewModel>("predicted_viewmodel")!;
-                viewmodel.DispatchSpawn();
-                handle.Raw = viewmodel.EntityHandle.Raw;
-                Utilities.SetStateChanged(pawn, "CCSPlayerPawnBase", "m_pViewModelServices");
-            }
-
-            return handle.Value;
+            PointOrients[player] = entOrient;
+            return entOrient;
         }
 
         public static void Freeze(this CCSPlayerController player)

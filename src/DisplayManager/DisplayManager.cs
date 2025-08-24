@@ -130,25 +130,9 @@ namespace CS2ScreenMenuAPI
 
             return (newX, newY, newSize);
         }
-        public static CCSGOViewModel? EnsureCustomView(CCSPlayerController player)
+        public static CPointOrient? EnsureCustomView(CCSPlayerController player)
         {
-            var pawn = GetPlayerPawn(player);
-            if (pawn == null || pawn.ViewModelServices == null)
-                return null;
-
-            int offset = Schema.GetSchemaOffset("CCSPlayer_ViewModelServices", "m_hViewModel");
-            IntPtr viewModelHandleAddress = pawn.ViewModelServices.Handle + offset + 4;
-
-            CHandle<CCSGOViewModel> handle = new(viewModelHandleAddress);
-            if (!handle.IsValid)
-            {
-                CCSGOViewModel viewmodel = Utilities.CreateEntityByName<CCSGOViewModel>("predicted_viewmodel")!;
-                viewmodel.DispatchSpawn();
-                handle.Raw = viewmodel.EntityHandle.Raw;
-                Utilities.SetStateChanged(pawn, "CCSPlayerPawnBase", "m_pViewModelServices");
-            }
-
-            return handle.Value;
+            return player.CreateOrGetPointOrient();
         }
 
         // --- THIS IS THE NEW, CORRECTED METHOD ---
@@ -162,7 +146,7 @@ namespace CS2ScreenMenuAPI
             float offset,
             Vector position,
             QAngle angle,
-            CCSGOViewModel viewModel,
+            CPointOrient viewModel,
             float backgroundXOffset = 0f)
         {
             CPointWorldText entity = Utilities.CreateEntityByName<CPointWorldText>("point_worldtext")!;
@@ -217,7 +201,7 @@ namespace CS2ScreenMenuAPI
             if (PlayerFakeTextCreated.TryGetValue(playerId, out bool created) && created)
                 return;
 
-            CCSGOViewModel? viewModel = EnsureCustomView(player);
+            CPointOrient? viewModel = EnsureCustomView(player);
             if (viewModel == null) { instance.Close(player); return; }
 
             QAngle angle = new QAngle();
