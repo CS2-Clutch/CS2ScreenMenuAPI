@@ -4,6 +4,7 @@ using System.Text;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Utils;
+using Microsoft.Extensions.Logging;
 using Vector = CounterStrikeSharp.API.Modules.Utils.Vector;
 
 namespace CS2ScreenMenuAPI

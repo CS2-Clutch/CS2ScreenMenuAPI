@@ -12,8 +12,8 @@ namespace CS2ScreenMenuAPI
 {
     public class Menu : IMenu, IDisposable
     {
-        internal CCSPlayerController _player = null!;
-        private readonly BasePlugin _plugin = null!;
+        private CCSPlayerController _player = null!;
+        public readonly BasePlugin Plugin = null!;
         private readonly Dictionary<string, CommandInfo.CommandCallback> _registeredKeyCommands = new();
         private bool _isClosed;
         private bool _isResolutionMenuShown = false;
@@ -21,7 +21,7 @@ namespace CS2ScreenMenuAPI
         internal int _flashKey = -1;
         private PlayerButtons g_OldButtons;
 
-        private MenuRenderer _renderer = null!;
+        internal MenuRenderer _renderer = null!;
 
         private bool _hasExitButtonExplicitlySet = false;
         private bool _showResolutionOptionExplicitlySet = false;
@@ -107,7 +107,7 @@ namespace CS2ScreenMenuAPI
         public Menu(CCSPlayerController player, BasePlugin plugin)
         {
             _player = player;
-            _plugin = plugin;
+            Plugin = plugin;
             _config = ConfigLoader.Load();
 
             Initialize(player);
@@ -116,17 +116,26 @@ namespace CS2ScreenMenuAPI
         public Menu(BasePlugin plugin)
         {
             _player = null!;
-            _plugin = plugin;
+            Plugin = plugin;
             _config = ConfigLoader.Load();
             _renderer = null!;
 
             ConfigureSettings();
 
-            if (!ResolutionDatabase._initialized)
+            Task.Run(() =>
             {
-                try { ResolutionDatabase.InitializeAsync(_plugin.Logger, _config.Database).GetAwaiter().GetResult(); }
-                catch (Exception ex) { _plugin.Logger.LogError($"Resolution DB init failed: {ex}"); }
-            }
+                if (!ResolutionDatabase._initialized)
+                {
+                    try
+                    {
+                        ResolutionDatabase.InitializeAsync(Plugin.Logger, _config.Database).GetAwaiter().GetResult();
+                    }
+                    catch (Exception ex)
+                    {
+                        Plugin.Logger.LogError($"Resolution DB init failed: {ex}");
+                    }
+                }
+            });
         }
 
         private void RegisterKeyCommands()
@@ -143,7 +152,7 @@ namespace CS2ScreenMenuAPI
                     OnKeyPress(player, key);
                 };
 
-                _plugin.AddCommand(commandName, "Handles menu navigation", callback);
+                Plugin.AddCommand(commandName, "Handles menu navigation", callback);
                 _registeredKeyCommands[commandName] = callback;
             }
         }
@@ -214,53 +223,68 @@ namespace CS2ScreenMenuAPI
             _renderer = new MenuRenderer(this, player);
 
             ConfigureSettings();
-            RegisterEvents();
 
             if (!ResolutionDatabase._initialized)
             {
-                try { ResolutionDatabase.InitializeAsync(_plugin.Logger, _config.Database).GetAwaiter().GetResult(); }
-                catch (Exception ex) { _plugin.Logger.LogError($"Resolution DB init failed: {ex}"); }
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        ResolutionDatabase.InitializeAsync(Plugin.Logger, _config.Database).GetAwaiter().GetResult();
+                    }
+                    catch (Exception ex)
+                    {
+                        Plugin.Logger.LogError($"Resolution DB init failed: {ex}");
+                    }
+                }).ContinueWith(_ => Server.NextFrame(Continue));
+                return;
             }
 
-            if (ResolutionDatabase.HasPlayerResolution(player))
-            {
-                Resolution playerRes = ResolutionDatabase.GetPlayerResolution(player);
-                MenuPositionX = playerRes.PositionX;
-                _renderer.MenuPosition = _renderer.MenuPosition with { X = playerRes.PositionX };
-                MenuAPI.SetActiveMenu(player, this);
-                RegisterKeyCommands();
+            Continue();
+            return;
 
-                // Freeze player if using scrollable menu
-                if (MenuType != MenuType.KeyPress && _config.Settings.FreezePlayer)
-                {
-                    player.Freeze();
-                }
-
-                Display();
-            }
-            else if (_config.Settings.Resolutions.Count > 0)
+            void Continue()
             {
-                _isClosed = true;
-                _isResolutionMenuShown = true;
-                CreateResolutionMenu(_player, _plugin, () =>
+                if (ResolutionDatabase.HasPlayerResolution(player))
                 {
-                    Resolution playerRes = ResolutionDatabase.GetPlayerResolution(_player!);
+                    Resolution playerRes = ResolutionDatabase.GetPlayerResolution(player);
                     MenuPositionX = playerRes.PositionX;
-                    _renderer!.MenuPosition = _renderer.MenuPosition with { X = playerRes.PositionX };
-                    _isClosed = false;
-                    _isResolutionMenuShown = false;
+                    _renderer.MenuPosition = _renderer.MenuPosition with { X = playerRes.PositionX };
+                    MenuAPI.SetActiveMenu(player, this);
                     RegisterKeyCommands();
-                    MenuAPI.SetActiveMenu(_player!, this);
+
+                    // Freeze player if using scrollable menu
+                    if (MenuType != MenuType.KeyPress && _config.Settings.FreezePlayer)
+                    {
+                        player.Freeze();
+                    }
+
                     Display();
-                });
-            }
-            else
-            {
-                MenuPositionX = _config.Settings.PositionX;
-                _renderer.MenuPosition = _renderer.MenuPosition with { X = _config.Settings.PositionX };
-                MenuAPI.SetActiveMenu(player, this);
-                RegisterKeyCommands();
-                Display();
+                }
+                else if (_config.Settings.Resolutions.Count > 0)
+                {
+                    _isClosed = true;
+                    _isResolutionMenuShown = true;
+                    CreateResolutionMenu(_player, Plugin, () =>
+                    {
+                        Resolution playerRes = ResolutionDatabase.GetPlayerResolution(_player!);
+                        MenuPositionX = playerRes.PositionX;
+                        _renderer!.MenuPosition = _renderer.MenuPosition with { X = playerRes.PositionX };
+                        _isClosed = false;
+                        _isResolutionMenuShown = false;
+                        RegisterKeyCommands();
+                        MenuAPI.SetActiveMenu(_player!, this);
+                        Display();
+                    });
+                }
+                else
+                {
+                    MenuPositionX = _config.Settings.PositionX;
+                    _renderer.MenuPosition = _renderer.MenuPosition with { X = _config.Settings.PositionX };
+                    MenuAPI.SetActiveMenu(player, this);
+                    RegisterKeyCommands();
+                    Display();
+                }
             }
         }
         public void Display()
@@ -329,7 +353,7 @@ namespace CS2ScreenMenuAPI
                             _isResolutionMenuShown = true;
                             PlaySelectSound();
 
-                            CreateResolutionMenu(player, _plugin, () =>
+                            CreateResolutionMenu(player, Plugin, () =>
                             {
                                 _isResolutionMenuShown = false;
                                 Resolution playerRes = ResolutionDatabase.GetPlayerResolution(_player!);
@@ -437,7 +461,7 @@ namespace CS2ScreenMenuAPI
                 {
                     PlaySelectSound();
                     _isResolutionMenuShown = true;
-                    CreateResolutionMenu(_player, _plugin, () =>
+                    CreateResolutionMenu(_player, Plugin, () =>
                     {
                         _isResolutionMenuShown = false;
                         Resolution playerRes = ResolutionDatabase.GetPlayerResolution(_player!);
@@ -635,19 +659,11 @@ namespace CS2ScreenMenuAPI
         {
             foreach (var commandEntry in _registeredKeyCommands)
             {
-                _plugin.RemoveCommand(commandEntry.Key, commandEntry.Value);
+                Plugin.RemoveCommand(commandEntry.Key, commandEntry.Value);
             }
             _registeredKeyCommands.Clear();
         }
-
-        private void RegisterEvents()
-        {
-            _plugin.RegisterEventHandler<EventPlayerDisconnect>(OnPlayerDisconnect);
-            _plugin.RegisterEventHandler<EventRoundStart>(OnRoundStart);
-            _plugin.RegisterListener<OnTick>(OnTick);
-            _plugin.RegisterListener<CheckTransmit>(OnCheckTransmit);
-        }
-        private HookResult OnRoundStart(EventRoundStart @event, GameEventInfo info)
+        public HookResult OnRoundStart(EventRoundStart @event, GameEventInfo info)
         {
             if (MenuAPI.GetActiveMenu(_player) != this)
                 return HookResult.Continue;
@@ -665,7 +681,7 @@ namespace CS2ScreenMenuAPI
 
             return HookResult.Continue;
         }
-        private HookResult OnPlayerDisconnect(EventPlayerDisconnect @event, GameEventInfo info)
+        public HookResult OnPlayerDisconnect(EventPlayerDisconnect @event, GameEventInfo info)
         {
             if (@event.Userid == _player)
             {
@@ -676,7 +692,7 @@ namespace CS2ScreenMenuAPI
             return HookResult.Continue;
         }
 
-        private void OnTick()
+        public void OnTick()
         {
             if (MenuAPI.GetActiveMenu(_player) != this || _player.Pawn.Value == null || !_player.IsValid)
             {
@@ -704,7 +720,7 @@ namespace CS2ScreenMenuAPI
             }
         }
 
-        private void OnCheckTransmit(CCheckTransmitInfoList infoList)
+        public void OnCheckTransmit(CCheckTransmitInfoList infoList)
         {
             _renderer.CheckTransmit(infoList);
         }
