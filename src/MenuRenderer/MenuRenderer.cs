@@ -476,6 +476,11 @@ namespace CS2ScreenMenuAPI
             if (_foregroundText?.IsValid == true) _foregroundText.Remove();
             if (_backgroundText?.IsValid == true) _backgroundText.Remove();
             if (_background?.IsValid == true) _background.Remove();
+
+            // Don't leak entities.
+            if (CCSPlayer.PointOrients.TryGetValue(_player, out var entity) && entity.IsValid)
+                entity.Remove();
+
             _highlightText = _foregroundText = _backgroundText = _background = null;
 
             ulong steamId = _player.SteamID;
