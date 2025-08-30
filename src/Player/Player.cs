@@ -42,38 +42,6 @@ namespace CS2ScreenMenuAPI
             return player.GetPlayerPawn() as CCSPlayerPawnBase;
         }
 
-        public static CPointOrient? EnsureCustomView(this CCSPlayerController player, int index)
-        {
-            return CreateOrGetPointOrient(player);
-        }
-
-        public static readonly Dictionary<CCSPlayerController, CPointOrient> PointOrients = new();
-
-        public static CPointOrient? CreateOrGetPointOrient(this CCSPlayerController player)
-        {
-            if (PointOrients.TryGetValue(player, out var pointOrient))
-                return pointOrient;
-
-            var pawn = player.Pawn.Value!;
-
-            var entOrient = Utilities.CreateEntityByName<CPointOrient>("point_orient");
-            if (entOrient == null || !entOrient.IsValid)
-                return null;
-
-            entOrient.Active = true;
-            entOrient.GoalDirection = PointOrientGoalDirectionType_t.eEyesForward;
-            entOrient.DispatchSpawn();
-
-            System.Numerics.Vector3 vecPos = (System.Numerics.Vector3)pawn.AbsOrigin! with { Z = pawn.AbsOrigin!.Z + pawn.ViewOffset.Z};
-            entOrient.Teleport(vecPos, null, null);
-            entOrient.AcceptInput("SetParent", pawn, null, "!activator");
-            entOrient.AcceptInput("SetTarget", pawn, null, "!activator");
-            //entOrient.AcceptInput("SetParentAttachmentMaintainOffset", pawn, null, "look_straight_ahead_stand");
-
-            PointOrients[player] = entOrient;
-            return entOrient;
-        }
-
         public static void Freeze(this CCSPlayerController player)
         {
             var pawn = player.PlayerPawn.Value;

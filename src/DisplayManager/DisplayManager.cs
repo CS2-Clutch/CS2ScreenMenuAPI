@@ -130,10 +130,6 @@ namespace CS2ScreenMenuAPI
 
             return (newX, newY, newSize);
         }
-        public static CPointOrient? EnsureCustomView(CCSPlayerController player)
-        {
-            return player.CreateOrGetPointOrient();
-        }
 
         // --- THIS IS THE NEW, CORRECTED METHOD ---
         public static CPointWorldText? CreateWorldText(
@@ -201,7 +197,7 @@ namespace CS2ScreenMenuAPI
             if (PlayerFakeTextCreated.TryGetValue(playerId, out bool created) && created)
                 return;
 
-            CPointOrient? viewModel = EnsureCustomView(player);
+            CPointOrient? viewModel = instance._renderer.GetOrCreatePointOrient();
             if (viewModel == null) { instance.Close(player); return; }
 
             QAngle angle = new QAngle();

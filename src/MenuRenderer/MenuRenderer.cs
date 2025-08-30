@@ -18,6 +18,7 @@ namespace CS2ScreenMenuAPI
         private CPointWorldText? _foregroundText;
         private CPointWorldText? _backgroundText;
         private CPointWorldText? _background;
+        private CPointOrient? _pointOrient;
         private nint? _createdForPawn = null;
         public bool ForceRefresh = true;
         private bool _presentingHtml = false;
@@ -109,8 +110,9 @@ namespace CS2ScreenMenuAPI
             if (!maybeEyeAngles.HasValue) return false;
             var eyeAngles = maybeEyeAngles.Value;
 
-            var predictedViewmodel = DisplayManager.EnsureCustomView(_player);
-            if (predictedViewmodel is null) return false;
+            var predictedViewmodel = GetOrCreatePointOrient();
+            if (predictedViewmodel is null)
+                return false;
 
             _highlightTextSb.Clear(); _foregroundTextSb.Clear(); _backgroundTextSb.Clear(); _backgroundSb.Clear();
 
@@ -476,12 +478,13 @@ namespace CS2ScreenMenuAPI
             if (_foregroundText?.IsValid == true) _foregroundText.Remove();
             if (_backgroundText?.IsValid == true) _backgroundText.Remove();
             if (_background?.IsValid == true) _background.Remove();
+            if (_pointOrient?.IsValid == true) _pointOrient.Remove();
 
-            // Don't leak entities.
-            if (CCSPlayer.PointOrients.TryGetValue(_player, out var entity) && entity.IsValid)
-                entity.Remove();
-
-            _highlightText = _foregroundText = _backgroundText = _background = null;
+            _highlightText = null;
+            _foregroundText = null;
+            _backgroundText = null;
+            _background = null;
+            _pointOrient = null;
 
             ulong steamId = _player.SteamID;
             if (_playerRoamingWorldTexts.ContainsKey(steamId))
@@ -496,6 +499,32 @@ namespace CS2ScreenMenuAPI
             _foregroundText = CreateWorldText(ForegroundTextColor, false, 0.000f);
             _backgroundText = CreateWorldText(BackgroundTextColor, false, -0.001f);
             _background = CreateWorldText(Color.FromArgb(125, 127, 127, 127), true, -0.002f);
+
+            _pointOrient = GetOrCreatePointOrient();
+        }
+
+        internal CPointOrient? GetOrCreatePointOrient()
+        {
+            if (_pointOrient?.IsValid == true)
+                return _pointOrient;
+
+            var pawn = _player.Pawn.Value!;
+
+            var entOrient = Utilities.CreateEntityByName<CPointOrient>("point_orient");
+            if (entOrient is null)
+                return null;
+
+            entOrient.Active = true;
+            entOrient.GoalDirection = PointOrientGoalDirectionType_t.eEyesForward;
+            entOrient.DispatchSpawn();
+
+            var vecPos = (Vector3)pawn.AbsOrigin! with { Z = pawn.AbsOrigin!.Z + pawn.ViewOffset.Z};
+            entOrient.Teleport(vecPos, null, null);
+            entOrient.AcceptInput("SetParent", pawn, null, "!activator");
+            entOrient.AcceptInput("SetTarget", pawn, null, "!activator");
+
+            _pointOrient = entOrient;
+            return entOrient;
         }
 
         private bool CreateInitialInvisibleWorldTextEntity()
@@ -504,7 +533,7 @@ namespace CS2ScreenMenuAPI
             if (_createdForPawn.HasValue && _createdForPawn.Value == observerInfo.Observing?.Handle)
                 return false;
 
-            var viewmodel = DisplayManager.EnsureCustomView(_player);
+            var viewmodel = GetOrCreatePointOrient();
             if (viewmodel is null) return false;
 
             var vectorData = _player.FindVectorData(MenuPosition.X);
