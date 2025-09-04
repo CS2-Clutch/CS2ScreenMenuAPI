@@ -290,7 +290,7 @@ namespace CS2ScreenMenuAPI
         public void Display()
         {
             _player.CreateFakeWorldText(this);
-            Server.NextFrame(() => _renderer.Draw());
+            _renderer.Draw();
         }
         public void Display(CCSPlayerController player)
         {
@@ -302,11 +302,11 @@ namespace CS2ScreenMenuAPI
             {
                 var tempRenderer = new MenuRenderer(this, player);
                 player.CreateFakeWorldText(this);
-                Server.NextFrame(() => tempRenderer.Draw());
+                tempRenderer.Draw();
                 return;
             }
             player.CreateFakeWorldText(this);
-            Server.NextFrame(() => _renderer?.Draw());
+            _renderer.Draw();
         }
         private void TransitionToPrevMenu()
         {
